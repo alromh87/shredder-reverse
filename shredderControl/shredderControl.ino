@@ -29,10 +29,10 @@
 
 enum UserDirection
 {
-  STOP = 0,
-  FORWARD = 1,
-  REVERSE = -1,
-  INVALID = 2
+  STOP = 0,    // must be falsy
+  FORWARD = 1, // must be positive
+  REVERSE = 2, // must be positive
+  INVALID = -1 // must be falsy
 };
 
 enum MotorDirection
@@ -47,7 +47,7 @@ enum MotorDirection
 //  Todos (plastic-hub):
 //  1. compare durations instead of time stamps (roll overs)
 //  2. determine shredding & idle amps to extract 'user activity' and stop machine after longer idle run
-//  3. delays between motor rotation switch
+//  3. done : delays between motor rotation switch
 //  4. done : debounce direction switch
 //  5. extract onFatal, onStop, onRun interface
 //  done
@@ -66,6 +66,8 @@ const float AnalogR2A = 5.0 / (1024 * 0.066);
 #define D_MIN_JAM_TIME 15000   // That time in milliseconds
 #define E_UNJAM_REVERSE_T 3000 // Retraction time to unjam
 #define MAX_CURRENT 12         // Max current in Amps, to detect jams
+
+#define DIR_SWITCH_DELAY 600 // delay to change direction, need by some relays
 
 struct ShredderConf
 {
@@ -377,13 +379,22 @@ void checkDirection()
       1. Shred
       2. Reverse
       If none is pushed we assume it is off
-      It's not possible to push both at the same time (in that case we assume shred forward)
+      It's not possible to push both at the same time (in that case we assume invalid input)
   */
-  int shredInput = digitalRead(shredButton); //check which button is pressed
+
   int direction = dirSwitch.read();
+  // insert a delay for direction switches except switch to stop, needed by some relays
+  if (direction && dirSwitch.last_switch)
+  {
+    if (dirSwitch.last_switch != direction)
+    {
+      delay(DIR_SWITCH_DELAY);
+    }
+  }
 
   switch (direction)
   {
+  case INVALID:
   case STOP:
   {
     //if you are set to stop

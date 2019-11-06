@@ -11,13 +11,13 @@ public:
    int setup();
    int loop();
    int read();
+   
+   int last_switch = -1; // Track last switch position
+   int switch_pos = -1;  // Current switch position
 
 protected:
    int upPin;
    int downPin;
-
-   int last_switch = -1; // Track last switch position
-   int switch_pos = -1;  // Current switch position
 
    Bounce debouncerUp;
    Bounce debouncerDown;

@@ -32,20 +32,20 @@ int Pos3::read()
 
   if (up)
   {
-    newDirection = 1;
+    newDirection = 1; // forward
   }
   if (down)
   {
-    newDirection = -1;
+    newDirection = 2; // reverse
   }
   if (!up && !down)
   {
-    newDirection = 0;
+    newDirection = 0; // stop
   }
 
   if (up && down)
   {
-    newDirection = 2;
+    newDirection = -1; // invalid
   }
   return newDirection;
 }
