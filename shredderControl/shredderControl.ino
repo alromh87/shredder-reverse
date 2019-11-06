@@ -26,9 +26,6 @@
 #define JAMMED_RV 2 // Reversing after jammed state
 #define JAMMED_RE 3 // Jamming reverse done state: waiting for motor to loose inertia
 
-#define DIR_ACTIVE_STATE HIGH  // support NO and NC switches for the direction switch
-#define DIR_INACTIVE_STATE LOW // support NO and NC switches for the direction switch
-
 enum UserDirection
 {
   STOP = 0,
@@ -44,14 +41,16 @@ enum MotorDirection
   REVERSING = -1
 };
 
+#include "Pos3.h"
+
 ///////////////////////////////////////////////////
 //
 //  Todos (plastic-hub):
 //  1. compare durations instead of time stamps (roll overs)
 //  2. determine shredding & idle amps to extract 'user activity' and stop machine after longer idle run
 //  3. delays between motor rotation switch
-//  4. debounce direction switch
-//  5. extract onFatal, onStop, onRun interface 
+//  4. done : debounce direction switch
+//  5. extract onFatal, onStop, onRun interface
 //  done
 
 #define A_2_AREAD(c) (runConf.v0A + (c / AnalogR2A))
@@ -106,6 +105,8 @@ float currentAvg = 0;
 int currentCount = 0;
 int shredDir = SHRED_STOP;
 
+Pos3 dirSwitch = Pos3(shredButton, reverseButton);
+
 LiquidCrystal_I2C lcd(0x3F, 16, 2); //set the address and dimensions of the LCD. Here the address is 0x3F, but it depends on the chip. You can use and i2c-scanner to determine the address of your chip.
 
 byte pBar[8] = {0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f, 0x1f};
@@ -116,24 +117,7 @@ char lcdBuffer[16];
 
 int getUserDirection()
 {
-  int shredInput = digitalRead(shredButton);
-  int reverseInput = digitalRead(reverseButton);
-  if (shredInput == DIR_INACTIVE_STATE && reverseInput == DIR_INACTIVE_STATE)
-  {
-    return STOP;
-  }
-  else if (shredInput == DIR_ACTIVE_STATE && reverseInput == DIR_ACTIVE_STATE)
-  {
-    return INVALID;
-  }
-  else if (shredInput == DIR_ACTIVE_STATE)
-  {
-    return FORWARD;
-  }
-  else if (reverseInput == DIR_ACTIVE_STATE)
-  {
-    return REVERSE;
-  }
+  return dirSwitch.read();
 }
 
 ///So here comes what the machine will do on startup
@@ -145,8 +129,7 @@ void setup()
   digitalWrite(motionPin, HIGH); //STOP shredder at boot //TODO: change from inverted to normal logic: HIGH -> ON
   pinMode(directionPin, OUTPUT);
   // initialize input pins:
-  pinMode(shredButton, INPUT);
-  pinMode(reverseButton, INPUT);
+  dirSwitch.setup();
   pinMode(measurePin, INPUT);
 
   Serial.begin(115200);
@@ -175,9 +158,16 @@ void setup()
 void loop()
 {
   if (configMode)
-    return; //Do noting while in config mode
+  {
+    //Do noting while in config mode
+    return;
+  }
   current = analogRead(measurePin);
+
+  dirSwitch.loop();
+
   checkDirection();
+
   if (!alarmed)
   {
     if (jamState == JAMMED_NO)
