@@ -14,6 +14,7 @@
 #include <EEPROM.h>
 #include <LiquidCrystal_I2C.h> //use the LCD Display (yes it is one of those i2c things)
 #include <Wire.h>
+#include "Pos3.h"
 
 //#define DEBUG 1
 
@@ -40,8 +41,6 @@ enum MotorDirection
   SHREDDING = 1,
   REVERSING = -1
 };
-
-#include "Pos3.h"
 
 ///////////////////////////////////////////////////
 //
