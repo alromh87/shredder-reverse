@@ -115,11 +115,6 @@ String inputString = ""; // a String to hold incoming data
 char *banner = "Precious Plastic v4";
 char lcdBuffer[16];
 
-int getUserDirection()
-{
-  return dirSwitch.read();
-}
-
 ///So here comes what the machine will do on startup
 void setup()
 {
@@ -386,7 +381,7 @@ void checkDirection()
       It's not possible to push both at the same time (in that case we assume shred forward)
   */
   int shredInput = digitalRead(shredButton); //check which button is pressed
-  int direction = getUserDirection();
+  int direction = dirSwitch.read();
 
   switch (direction)
   {
