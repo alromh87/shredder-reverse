@@ -1,5 +1,4 @@
 #include "3pos.h"
-#include "enums.h"
 
 Pos3::Pos3(int upPin, int downPin)
 {
