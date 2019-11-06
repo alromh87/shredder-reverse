@@ -44,6 +44,16 @@ enum MotorDirection
   REVERSING = -1
 };
 
+///////////////////////////////////////////////////
+//
+//  Todos (plastic-hub):
+//  1. compare durations instead of time stamps (roll overs)
+//  2. determine shredding & idle amps to extract 'user activity' and stop machine after longer idle run
+//  3. delays between motor rotation switch
+//  4. debounce direction switch
+//  5. extract onFatal, onStop, onRun interface 
+//  done
+
 #define A_2_AREAD(c) (runConf.v0A + (c / AnalogR2A))
 #define AREAD_2_A(c) ((c - runConf.v0A) * AnalogR2A)
 const float AnalogR2A = 5.0 / (1024 * 0.066);
