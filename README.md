@@ -30,14 +30,15 @@ Load shredderControl/shredderControl.ino to microcontroler
 ### Params tunning
 Running params can be tunned for your particular setup via serial port
 
-Send "config" to enter into configuration mode, current reads will stop waiting for configuration
+Send "config" to enter into configuration mode, shredder will be halted and current reads will stop, waiting for configuration
+
 Send values separated via comas (all are ints)
-  
-`configV, v0A, startSpan, maxJams, minJamTime, unjamReverseT, maxCurrent`
+
+`configV, v0A, sensorGain, startSpan, maxCurrent, maxJams, minJamTime, unjamReverseT`
 
 Default values are:
 
-`0,538,500,3,15000,3000,12`
+`1,512,66,500,12,3,15000,3000`
 
 You can load default values by sending "reset"
 
@@ -48,5 +49,4 @@ You can load default values by sending "reset"
 Things that are still on the TODO list:
 
 - [ ] Circuit diagram & PCB
-- [ x ] Allow configuring parameters from GUI
 - [ ] List of components

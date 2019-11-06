@@ -14,6 +14,8 @@
 #include <EEPROM.h>
 #include <LiquidCrystal_I2C.h>            //use the LCD Display (yes it is one of those i2c things)
 #include <Wire.h>
+#include "config.h"
+#include "pinsPP.h"
 
 //#define DEBUG 1
 
@@ -26,39 +28,6 @@
 #define JAMMED_RV 2             // Reversing after jammed state
 #define JAMMED_RE 3             // Jamming reverse done state: waiting for motor to loose inertia
 
-#define A_2_AREAD(c) (runConf.v0A + (c/AnalogR2A))
-#define AREAD_2_A(c) ((c - runConf.v0A)*AnalogR2A)
-const float AnalogR2A = 5.0 / (1024 * 0.066);
-
-/* Configuration, you can adjust this via serial */
-#define EEPROM_ID "PPS"
-#define EEPROM_V 0
-
-#define D_V0A 538                   // Tune this value to Analog read when no current flowing
-#define D_START_SPAN 500            // Time to ignore current spikes due to motor start
-#define D_MAX_JAMS 3                // Max amount of jams in a set time
-#define D_MIN_JAM_TIME 15000        // That time in milliseconds
-#define E_UNJAM_REVERSE_T 3000      // Retraction time to unjam
-#define MAX_CURRENT 12              // Max current in Amps, to detect jams
-
-struct ShredderConf {
-  int v0A;
-  int startSpan;
-  int maxJams;
-  int minJamTime;
-  int unjamReverseT;
-  int maxCurrent;   // this is the value over which the hall sensor signal will register as a jam.
-};
-ShredderConf runConf;
-/* Config end */
-
-// constants won't change. They're used here to set pin numbers:
-const int shredButton = 7;     // the number of the pin that registers if you want the machine to shred
-const int reverseButton = 6;   // the number of the pin that registers if you want the machine to reverse
-const int motionPin = 4;       // the number of the pin that decides if the motor turns
-const int directionPin = 3;    // the number of the pin that decides the driection of the motor
-const int measurePin = A0;     // this pin has a hall sensor connected to it that measures the output current to the motor
-
 int jamState = JAMMED_NO;
 unsigned long jamTick;
 
@@ -70,7 +39,9 @@ int i;
 
 boolean working = true;
 boolean configMode = false;
+boolean tunning = false;
 boolean alarmed = false;
+boolean readyToWork = false;
 unsigned long lastStart = 0;
 unsigned long lastCurrentPrint = 0;
 float currentAvg = 0;
@@ -106,7 +77,6 @@ void setup() {
   for (int i = 0; i < 4; i++) {
     lcd.setCursor(0, 0);
     sprintf(lcdBuffer, "%.16s", &(banner[i]));
-    //lcd.print(&(banner[i]);
     lcd.print(lcdBuffer);
     delay(350);
   }
@@ -122,6 +92,7 @@ void loop() {
   if(configMode)return; //Do noting while in config mode
   current = analogRead(measurePin);
   checkDirection();
+  if(!readyToWork)return;
   if (!alarmed) {
     if (jamState == JAMMED_NO) {
       if (working && millis() >= lastStart + runConf.startSpan && current > runConf.maxCurrent) {
@@ -137,7 +108,7 @@ void loop() {
     }
     switch (jamState) {
       case JAMMED_YE:
-        if ((current <= runConf.v0A + 2) || (millis() > jamTick + 2000)) {      // wait a bit to make the shredder halt
+        if (current <= runConf.v0A) {      // wait a bit to make the shredder halt
           reverse();                               // then it reverses
           jamTick  = millis();
           jamState = JAMMED_RV;
@@ -151,7 +122,7 @@ void loop() {
         }
         break;
       case JAMMED_RE:
-        if ((current <= runConf.v0A + 2) || (millis() > jamTick + 3000)) {      // Let the motor come to a halt
+        if (current <= runConf.v0A) {      // Let the motor come to a halt
           jamState = JAMMED_NO;
           if (shredDir == SHRED_FW)
             shred();
@@ -162,9 +133,9 @@ void loop() {
       default:
         break;
     }
-    printCurrent();      // display this as value in amps.
-    printBar();          //displays current as a progress bar.
-    //printValue();      //you can also display the measured value.
+    printCurrent();           // display this as value in amps.
+    if(!tunning) printBar();  //displays current as a progress bar.
+    else printValue();        //you can also display the measured value.
   }
 #ifndef DEBUG
   Serial.println(AREAD_2_A(current));             // You can read the current over serial
@@ -177,10 +148,9 @@ void serialEvent() {
     inputString += inChar;
     if (inChar == '\n') {
       if(configMode){
-        //TODO: receive config vars and store to EEPROM
-        int v,r_v0A, r_startSpan, r_maxJams, r_minJamTime, r_unjamReverseT, r_maxCurrent;
-        int decoded = sscanf(const_cast<char*>(inputString.c_str()), "%d,%d,%d,%d,%d,%d,%d", &v, &r_v0A, &r_startSpan, &r_maxJams, &r_minJamTime, &r_unjamReverseT, &r_maxCurrent);
-        if(decoded != 7){
+        int v, r_v0A, r_gain, r_startSpan, r_maxJams, r_minJamTime, r_unjamReverseT, r_maxCurrent;
+        int decoded = sscanf(const_cast<char*>(inputString.c_str()), "%d,%d,%d,%d,%d,%d,%d,%d", &v, &r_v0A, &r_gain, &r_startSpan, &r_maxCurrent, &r_maxJams, &r_minJamTime, &r_unjamReverseT);
+        if(decoded != 8){
           Serial.print("Invalid config received: ");
           Serial.println(inputString);
         }else{
@@ -189,15 +159,17 @@ void serialEvent() {
           }else{
             runConf = {
               r_v0A,
+              A_GAIN(r_gain),
               r_startSpan,
+              0,
               r_maxJams,
               r_minJamTime,
-              r_unjamReverseT,
-              0
+              r_unjamReverseT
             };
             runConf.maxCurrent = A_2_AREAD(r_maxCurrent); //Max current should be calculated after we have loaded config voltage offset for 0A(v0A)
             saveConfig();
             configMode = false;
+            tunning = false;
             Serial.println("config ok");
           }
         }
@@ -211,6 +183,9 @@ void serialEvent() {
         lcd.print("PP Shredder     ");
         lcd.setCursor(0, 1);
         lcd.print("     config mode");
+      }
+      if(inputString.equals("tune\n")){                       // Display Raw analog read value for tunning
+        tunning = true;
       }
       if(inputString.equals("reset\n")){
         Serial.println("Restoring default config");
@@ -241,7 +216,7 @@ void reverse() {
   Serial.println("I am going back");
 #endif
   digitalWrite(motionPin, LOW);                        // Set stuff in motion
-  digitalWrite(directionPin, HIGH);                          // in the reverse direction
+  digitalWrite(directionPin, HIGH);                    // in the reverse direction
 }
 
 void halt() {
@@ -255,6 +230,7 @@ void halt() {
 
 void countJams() {
 #ifdef DEBUG
+  Serial.print(startTime);
   Serial.print(startTime);
   Serial.print(" vs ");
   Serial.println(millis());
@@ -313,7 +289,12 @@ void checkDirection() {
       //      jammedCounter = 0;                              //Should we restart jamming count?
       alarmed = false;
     }
+    if(!readyToWork)readyToWork=true;
   } else {
+    if(!readyToWork){
+      lcd.setCursor(i, 1);
+      lcd.print("Switch off to start");
+    }
     if (!working) {
       working = true;
       lastStart = millis();
@@ -336,15 +317,17 @@ void checkDirection() {
 void restoreConfig(){
   runConf = {
     D_V0A,
+    A_GAIN(D_GAIN),
     D_START_SPAN,
+    0,
     D_MAX_JAMS,
     D_MIN_JAM_TIME,
     E_UNJAM_REVERSE_T,
-    0
   };
   runConf.maxCurrent = A_2_AREAD(MAX_CURRENT); //Max current should be calculated after we have loaded config voltage offset for 0A(v0A)
   saveConfig();
 }
+
 void readConfig() {
   int address = 0;
   char id[4];
@@ -362,13 +345,14 @@ void readConfig() {
   } else {
     EEPROM.get(address, runConf);
 #ifdef DEBUG
-    Serial.println("Config loaded correctly");
+    Serial.println("Config loaded correctly!!\n\n");
     Serial.print("0A analogRead offset: "); Serial.println(runConf.v0A);
+    Serial.print("Analog read to A gain: "); Serial.println(runConf.AnalogR2A);
     Serial.print("@ start wait for "); Serial.print(runConf.startSpan); Serial.println("ms before detecting jams");
+    Serial.print("Detect jam when current over "); Serial.println(AREAD_2_A(runConf.maxCurrent));
     Serial.print("Alarm in case of "); Serial.print(runConf.maxJams);
     Serial.print(" jams detected within "); Serial.print(runConf.minJamTime); Serial.println("ms");
     Serial.print("Reverse for "); Serial.print(runConf.unjamReverseT); Serial.println("ms to unjam");
-    Serial.print("Detect jam when current over "); Serial.println(AREAD_2_A(runConf.maxCurrent));
 #endif
   }
 #ifdef DEBUG
