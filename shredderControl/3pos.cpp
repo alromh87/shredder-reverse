@@ -33,15 +33,15 @@ int Pos3::read()
 
   if (up)
   {
-    newDirection = POS3_DIRECTION::UP;
+    newDirection = FORWARD;
   }
   if (down)
   {
-    newDirection = POS3_DIRECTION::DOWN;
+    newDirection = REVERSE;
   }
   if (!up && !down)
   {
-    newDirection = POS3_DIRECTION::MIDDLE;
+    newDirection = STOP;
   }
   return newDirection;
 }
