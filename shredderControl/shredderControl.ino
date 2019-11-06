@@ -138,7 +138,11 @@ void loop() {
     else printValue();        //you can also display the measured value.
   }
 #ifndef DEBUG
-  Serial.println(AREAD_2_A(current));             // You can read the current over serial
+  if(!tunning)
+    Serial.println(AREAD_2_A(current));             // You can read the current over serial
+  else
+    Serial.println(current);             // You can read the current over serial
+
 #endif
 }
 
@@ -221,7 +225,7 @@ void reverse() {
 
 void halt() {
   lcd.setCursor(0, 0);
-  lcd.print("Shredder   ");
+  lcd.print("Ready      ");
 #ifdef DEBUG
   Serial.println("STOP");   //tell the world you are coming to a halt
 #endif
@@ -230,7 +234,7 @@ void halt() {
 
 void countJams() {
 #ifdef DEBUG
-  Serial.print(startTime);
+  Serial.print("Counting time betwen jams");
   Serial.print(startTime);
   Serial.print(" vs ");
   Serial.println(millis());
@@ -292,8 +296,11 @@ void checkDirection() {
     if(!readyToWork)readyToWork=true;
   } else {
     if(!readyToWork){
-      lcd.setCursor(i, 1);
-      lcd.print("Switch off to start");
+      lcd.setCursor(0, 0);
+      lcd.print("Switch off      ");
+      lcd.setCursor(0, 1);
+      lcd.print(" before starting");
+      return;
     }
     if (!working) {
       working = true;
