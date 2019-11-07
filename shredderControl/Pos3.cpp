@@ -15,7 +15,10 @@ int Pos3::setup()
 
   this->debouncerDown = Bounce();
   this->debouncerDown.attach(this->downPin, INPUT_PULLUP);
-  this->debouncerDown.interval(25);
+  this->debouncerDown.interval(25);(
+
+  this->last_switch = this->read();
+
   return 0;
 }
 

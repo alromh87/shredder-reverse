@@ -49,7 +49,8 @@ enum MotorDirection
 //  2. determine shredding & idle amps to extract 'user activity' and stop machine after longer idle run
 //  3. done : delays between motor rotation switch
 //  4. done : debounce direction switch
-//  5. extract onFatal, onStop, onRun interface
+//  5. done : ignore first user direction upon boot, user has to explicit stop fist and then go forward or reverse 
+//  6. extract onFatal, onStop, onRun interface
 //  done
 
 #define A_2_AREAD(c) (runConf.v0A + (c / AnalogR2A))
@@ -67,8 +68,9 @@ const float AnalogR2A = 5.0 / (1024 * 0.066);
 #define E_UNJAM_REVERSE_T 3000 // Retraction time to unjam
 #define MAX_CURRENT 12         // Max current in Amps, to detect jams
 
-#define DIR_SWITCH_DELAY 600 // delay to change direction, need by some relays
-
+#define DIR_SWITCH_DELAY 600   // delay to change direction, need by some relays
+#define IGNORE_FIRST_MOVE      // If defined it will ignore the very first forward or reverse  
+bool ignoredFirstMove = false;
 struct ShredderConf
 {
   int v0A;
@@ -161,6 +163,17 @@ void loop()
   current = analogRead(measurePin);
 
   dirSwitch.loop();
+
+  #ifdef IGNORE_FIRST_MOVE
+    if(!ignoredFirstMove)
+    {
+      if(dirSwitch.last_switch && dirSwitch.read()){
+        return;
+      }else if(dirSwitch.last_switch && !dirSwitch.read()){
+        ignoredFirstMove = true;
+      }
+    }
+  #endif
 
   checkDirection();
 
@@ -395,45 +408,45 @@ void checkDirection()
   switch (direction)
   {
   case INVALID:
-  case STOP:
-  {
-    //if you are set to stop
-    if (working)
-    {
-      halt(); //don't move
-      working = false;
-      shredDir = SHRED_STOP;
-      jamState = JAMMED_NO;
-      //      jammedCounter = 0;                              //Should we restart jamming count?
-      alarmed = false;
-    }
-    break;
+    halt(); //don't move
+    working = false;
+    shredDir = SHRED_STOP;
+    jamState = JAMMED_NO;
+    //      jammedCounter = 0;                              //Should we restart jamming count?
+    alarmed = false;
   }
-  case FORWARD:
-  case REVERSE:
+  break;
+}
+case FORWARD:
+case REVERSE:
+{
+  if (!working)
   {
-    if (!working)
+    working = true;
+    lastStart = millis();
+  }
+  //TODO: check rotation shift and wait before changing
+  if (direction == FORWARD)
+  { //if you are set to shred
+    if (shredDir != SHRED_FORWARD)
     {
-      working = true;
-      lastStart = millis();
+      shred(); //shred
+      shredDir = SHRED_FORWARD;
     }
-    //TODO: check rotation shift and wait before changing
-    if (direction == FORWARD)
-    { //if you are set to shred
-      if (shredDir != SHRED_FORWARD)
-      {
-        shred(); //shred
-        shredDir = SHRED_FORWARD;
-      }
+  }
+  else if (direction == REVERSE)
+  { //if you are set to reverse
+    if (shredDir != SHRED_REVERSE)
+    {
+      reverse(); //turn back
+      shredDir = SHRED_REVERSE;
     }
-    else if (direction == REVERSE)
-    { //if you are set to reverse
-      if (shredDir != SHRED_REVERSE)
-      {
-        reverse(); //turn back
-        shredDir = SHRED_REVERSE;
-      }
-    }
+  }
+  break;
+}
+default:
+break;
+}
     break;
   }
   default:
