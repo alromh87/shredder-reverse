@@ -11,6 +11,8 @@
 #define D_MIN_JAM_TIME 15000        // That time in milliseconds
 #define E_UNJAM_REVERSE_T 3000      // Retraction time to unjam
 
+#define DIR_SWITCH_DELAY 600        // delay to change direction, need by some relays
+
 #define A_2_AREAD(c) (runConf.v0A + (c/runConf.AnalogR2A))
 #define AREAD_2_A(c) ((c - runConf.v0A)*runConf.AnalogR2A)
 #define A_GAIN(g) (5.0 / (1024 * (g/1000.0)))

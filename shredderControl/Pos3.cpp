@@ -1,4 +1,5 @@
 #include "Pos3.h"
+#include "types.h"
 
 Pos3::Pos3(int upPin, int downPin)
 {
@@ -15,7 +16,7 @@ int Pos3::setup()
 
   this->debouncerDown = Bounce();
   this->debouncerDown.attach(this->downPin, INPUT_PULLUP);
-  this->debouncerDown.interval(25);(
+  this->debouncerDown.interval(25);
 
   this->last_switch = this->read();
 
@@ -35,20 +36,20 @@ int Pos3::read()
 
   if (up)
   {
-    newDirection = 1; // forward
+    newDirection = FORWARD; // forward
   }
   if (down)
   {
-    newDirection = 2; // reverse
+    newDirection = REVERSE; // reverse
   }
   if (!up && !down)
   {
-    newDirection = 0; // stop
+    newDirection = STOP; // stop
   }
 
   if (up && down)
   {
-    newDirection = -1; // invalid
+    newDirection = INVALID; // invalid
   }
   return newDirection;
 }
